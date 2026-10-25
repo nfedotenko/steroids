@@ -12,8 +12,13 @@ target_include_directories(steroids INTERFACE
 target_compile_features(steroids INTERFACE cxx_std_20)
 
 option(STEROIDS_BUILD_TESTS "Build tests" OFF)
+option(STEROIDS_BUILD_BENCH "Build benchmarks" OFF)
 
 if(STEROIDS_BUILD_TESTS OR BUILD_TESTING)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(STEROIDS_BUILD_BENCH)
+  add_subdirectory(bench)
 endif()
