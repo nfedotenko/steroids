@@ -10,7 +10,7 @@
 #include <string>
 #include <thread>
 
-#include <steroids/spsc_queue.h>
+#include <steroids/queues/spsc_queue.h>
 
 using steroids::spsc_queue;
 
