@@ -12,7 +12,8 @@ of the gym is here.
 | Primitive | Status |
 | :-- | :-- |
 | `steroids::spsc_queue` — bounded SPSC ring, owner-grouped cache lines | ✅ |
-| size-class lock-free allocator | planned |
+| `steroids::mpsc_queue` | planned |
+| `steroids::pool_allocator` — thread-caching size-class pool, O(1) hot path | ✅ |
 | `out_of_line` — hot/cold field splitting with RAII | planned |
 | seqlock | planned |
 | shared-memory IPC transport | planned |
@@ -33,7 +34,7 @@ target_link_libraries(app PRIVATE steroids::steroids)
 ```
 
 ```cpp
-#include <steroids/spsc_queue.h>
+#include <steroids/queues/spsc_queue.h>
 
 steroids::spsc_queue<Order, 1024> q;
 q.emplace(...);   // producer thread
