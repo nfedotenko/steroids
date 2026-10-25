@@ -1,0 +1,203 @@
+name: CI (CMake + GTest)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.config.os }} • ${{ matrix.config.compiler }} • ${{ matrix.config.build_type }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { os: ubuntu-latest, compiler: gcc,   c: gcc,   cxx: g++,     generator: Ninja, build_type: Release }
+          - { os: ubuntu-latest, compiler: clang, c: clang, cxx: clang++, generator: Ninja, build_type: Release }
+          - { os: windows-latest, compiler: msvc, c: cl,    cxx: cl,      generator: Ninja, build_type: Release }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show matrix selection
+        run: |
+          echo "os=${{ matrix.config.os }}"
+          echo "compiler=${{ matrix.config.compiler }}"
+          echo "c=${{ matrix.config.c }}"
+          echo "cxx=${{ matrix.config.cxx }}"
+          echo "gen=${{ matrix.config.generator }}"
+
+
+      # MSVC environment for cl.exe
+      - name: Set up MSVC developer command prompt
+        if: matrix.config.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # Speed up Linux builds with ccache
+      - name: Set up ccache
+        if: startsWith(matrix.config.os, 'ubuntu')
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ runner.os }}-${{ matrix.config.compiler }}-${{ matrix.config.build_type }}
+
+      # Configure on Linux (with ccache)
+      - name: Configure (Linux)
+        if: startsWith(matrix.config.os, 'ubuntu')
+        run: >
+          cmake -S . -B build
+          -G "${{ matrix.config.generator }}"
+          -DCMAKE_C_COMPILER=${{ matrix.config.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}
+          -DBUILD_TESTING=ON
+
+      # Configure on Windows (MSVC)
+      - name: Configure (Windows)
+        if: matrix.config.os == 'windows-latest'
+        run: >
+          cmake -S . -B build
+          -G "${{ matrix.config.generator }}"
+          -DCMAKE_C_COMPILER=${{ matrix.config.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+          -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }}
+          -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config.build_type }} -j 2
+
+      - name: Run tests (ctest)
+        working-directory: build
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+          GTEST_COLOR: 1
+        run: >
+          ctest --build-config ${{ matrix.config.build_type }}
+          --output-on-failure -j 2
+          --output-junit "ctest-${{ matrix.config.os }}-${{ matrix.config.compiler }}.xml"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-${{ matrix.config.os }}-${{ matrix.config.compiler }}-${{ matrix.config.build_type }}
+          path: build/ctest-*.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: ccache stats
+        if: startsWith(matrix.config.os, 'ubuntu')
+        run: ccache -s
+
+  sanitize:
+    name: Sanitizers • ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: clang
+            c: clang
+            cxx: clang++
+          - compiler: gcc
+            c: gcc
+            cxx: g++
+    steps:
+      - uses: actions/checkout@v4
+
+      # Optional cache to prevent mixing with non-sanitized builds
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ runner.os }}-sanitize-${{ matrix.compiler }}
+
+      - name: Configure (ASan+UBSan)
+        run: >
+          cmake -S . -B build-sanitize
+          -G "Ninja"
+          -DCMAKE_C_COMPILER=${{ matrix.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DBUILD_TESTING=ON
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          # Compile & link flags for sanitizers:
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g -fno-lto"
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g -fno-lto"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-lto"
+          -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-lto"
+
+      - name: Build (sanitized)
+        run: cmake --build build-sanitize -j 2
+
+      - name: Run tests (ASan/UBSan)
+        working-directory: build-sanitize
+        env:
+          # Helpful diagnostics for sanitizers:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          CTEST_OUTPUT_ON_FAILURE: 1
+          GTEST_COLOR: 1
+        run: >
+          ctest --output-on-failure
+          --output-junit "ctest-sanitize-${{ matrix.compiler }}.xml"
+
+      - name: Upload sanitizer test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-sanitize-${{ matrix.compiler }}
+          path: build-sanitize/ctest-sanitize-*.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  tsan:
+    name: TSan • clang
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ runner.os }}-tsan-clang
+
+      - name: Configure (TSan)
+        run: >
+          cmake -S . -B build-tsan
+          -G "Ninja"
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DBUILD_TESTING=ON
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DCMAKE_C_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -O1 -g -fno-lto"
+          -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -O1 -g -fno-lto"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread -fno-lto"
+          -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=thread -fno-lto"
+
+      - name: Build (TSan)
+        run: cmake --build build-tsan -j 2
+
+      - name: Run tests (TSan)
+        working-directory: build-tsan
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+          CTEST_OUTPUT_ON_FAILURE: 1
+          GTEST_COLOR: 1
+        run: >
+          ctest --output-on-failure
+          --output-junit "ctest-tsan-clang.xml"
+
+      - name: Upload TSan test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-tsan-clang
+          path: build-tsan/ctest-tsan-*.xml
+          if-no-files-found: ignore
+          retention-days: 14

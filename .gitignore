@@ -1,0 +1,12 @@
+# Build trees
+build*/
+cmake-build-*/
+bench_out/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
