@@ -42,6 +42,18 @@ Order o;
 q.dequeue(o);     // consumer thread
 ```
 
+## Benchmarks
+
+```bash
+cmake -B build-bench -DCMAKE_BUILD_TYPE=Release -DSTEROIDS_BUILD_BENCH=ON
+cmake --build build-bench
+./build-bench/bench/alloc-bench --cpu 2 --summary-csv out.csv
+```
+
+Allocate and free are timed separately with serialized tick reads, reported
+as percentiles. Numbers appear in this README only once collected on a
+quiet, pinned Linux box — and they will include the runs we lose.
+
 ## Tests
 
 ```bash
