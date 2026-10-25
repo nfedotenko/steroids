@@ -14,7 +14,8 @@ of the gym is here.
 | `steroids::spsc_queue` — bounded SPSC ring, owner-grouped cache lines | ✅ |
 | `steroids::mpsc_queue` | planned |
 | `steroids::pool_allocator` — thread-caching size-class pool, O(1) hot path | ✅ |
-| `out_of_line` — hot/cold field splitting with RAII | planned |
+| `steroids::out_of_line` — hot/cold field splitting with RAII, sharded registry | ✅ |
+| `steroids::spin_lock` — TTAS with pause | ✅ |
 | seqlock | planned |
 | shared-memory IPC transport | planned |
 | C++26 reflection-based serialization codegen | planned |
