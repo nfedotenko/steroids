@@ -17,7 +17,7 @@ of the gym is here.
 | `steroids::pool_allocator` — thread-caching size-class pool, O(1) hot path | ✅ |
 | `steroids::out_of_line` — hot/cold field splitting with RAII, sharded registry | ✅ |
 | `steroids::spin_lock` — TTAS with pause | ✅ |
-| seqlock | planned |
+| `steroids::seqlock` — torn-free snapshots, TSan-clean by construction | ✅ |
 | shared-memory IPC transport | planned |
 | C++26 reflection-based serialization codegen | planned |
 
