@@ -19,7 +19,7 @@ of the gym is here.
 | `steroids::out_of_line` — hot/cold field splitting with RAII, sharded registry | ✅ |
 | `steroids::spin_lock` — TTAS with pause | ✅ |
 | `steroids::seqlock` — torn-free snapshots, TSan-clean by construction | ✅ |
-| shared-memory IPC transport | planned |
+| `steroids::shm_spsc_channel` — SPSC queue across processes in named shared memory, validated layout header | ✅ |
 | C++26 reflection-based serialization codegen | planned |
 
 Built in public, one primitive at a time. Each one lands with tests
