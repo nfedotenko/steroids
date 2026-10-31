@@ -86,6 +86,16 @@ public:
         pick_positions(items);
         assign_associations(items);
 
+        // Reduce association values modulo the table size: slots are sums
+        // mod TableSize, so this is slot-preserving, and it lets the hot
+        // tables shrink to uint16_t (1.5 KiB for three positions — they
+        // live in L1 instead of spanning 3 KiB of uint32s).
+        for (auto& table : asso_) {
+            for (auto& v : table) {
+                v = v & (TableSize - 1);
+            }
+        }
+
         for (const kv& item : items) {
             slot_t& s = slots_[slot_of(item.key)];
             if (s.used) {
@@ -185,10 +195,26 @@ private:
     }
 
     std::size_t slot_of_raw(const char* data, std::size_t len) const noexcept {
-        std::size_t h = len;
-        for (std::size_t i = 0; i < pos_count_; ++i) {
+        // Unrolled per position count: the loop's branch costs more than
+        // the whole hash at these sizes.
+        const auto term = [&](std::size_t i) {
             const std::size_t p = positions_[i];
-            h += asso_[i][p < len ? static_cast<unsigned char>(data[p]) : 0u];
+            return static_cast<std::size_t>(
+                asso_[i][p < len ? static_cast<unsigned char>(data[p]) : 0u]);
+        };
+        std::size_t h = len;
+        switch (pos_count_) {
+        case 3:
+            h += term(2);
+            [[fallthrough]];
+        case 2:
+            h += term(1);
+            [[fallthrough]];
+        case 1:
+            h += term(0);
+            [[fallthrough]];
+        default:
+            break;
         }
         return h & (TableSize - 1);
     }
@@ -329,7 +355,9 @@ private:
     }
 #endif
 
-    std::array<std::array<std::uint32_t, 256>, max_positions> asso_{};
+    static_assert(TableSize <= (std::size_t{1} << 16),
+                  "u16 association tables cap the table size at 65536");
+    std::array<std::array<std::uint16_t, 256>, max_positions> asso_{};
     std::array<std::size_t, max_positions> positions_{};
     std::size_t pos_count_{0};
     std::array<slot_t, TableSize> slots_{};
