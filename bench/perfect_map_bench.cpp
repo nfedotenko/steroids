@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2025 Nikolai Fedotenko.
+ * Copyright(c) 2026 Nikolai Fedotenko.
  * Distributed under the MIT License (http://opensource.org/licenses/MIT)
  *
  * perfect_map vs std::unordered_map for a fixed key set (20 HTTP headers),

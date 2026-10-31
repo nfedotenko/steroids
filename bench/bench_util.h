@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2025 Nikolai Fedotenko.
+ * Copyright(c) 2026 Nikolai Fedotenko.
  * Distributed under the MIT License (http://opensource.org/licenses/MIT)
  *
  * Shared benchmark plumbing: serialized tick reads, tick→ns calibration,
