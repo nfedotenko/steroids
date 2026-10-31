@@ -14,6 +14,7 @@ of the gym is here.
 | `steroids::spsc_queue` — bounded SPSC ring, owner-grouped cache lines | ✅ |
 | `steroids::mpsc_queue` — bounded MPSC, Vyukov-style sequenced cells | ✅ |
 | `steroids::id_map` — lock-free id→value interning (wait-free readers) + constexpr FNV-1a | ✅ |
+| `steroids::perfect_map` — compile-time perfect hashing for fixed string keys, SIMD compare (after Lemire & Thiesen 2026) | ✅ |
 | `steroids::pool_allocator` — thread-caching size-class pool, O(1) hot path | ✅ |
 | `steroids::out_of_line` — hot/cold field splitting with RAII, sharded registry | ✅ |
 | `steroids::spin_lock` — TTAS with pause | ✅ |
